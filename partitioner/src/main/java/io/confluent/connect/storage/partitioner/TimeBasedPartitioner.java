@@ -41,6 +41,8 @@ import io.confluent.connect.storage.common.SchemaGenerator;
 import io.confluent.connect.storage.common.StorageCommonConfig;
 import io.confluent.connect.storage.errors.PartitionException;
 
+import javax.xml.bind.DatatypeConverter;
+
 public class TimeBasedPartitioner<T> extends DefaultPartitioner<T> {
   // Duration of a partition in milliseconds.
   private static final Logger log = LoggerFactory.getLogger(TimeBasedPartitioner.class);
@@ -236,14 +238,20 @@ public class TimeBasedPartitioner<T> extends DefaultPartitioner<T> {
           case INT64:
             return ((Number) timestampValue).longValue();
           case STRING:
-            return dateTime.parseMillis((String) timestampValue);
+            try {
+              return dateTime.parseMillis((String) timestampValue);
+            } catch (Exception exc) {
+              Date dateFormat = DatatypeConverter.parseDateTime((String) timestampValue).getTime();
+              return dateFormat.getTime();
+            }
+
           default:
             log.error(
                 "Unsupported type '{}' for user-defined timestamp field.",
                 fieldSchema.type().getName()
             );
             throw new PartitionException(
-                "Error extracting timestamp from record field: " + fieldName
+                "Error extracting timestamp from record field. Unsupported type: " + fieldName
             );
         }
       } else if (value instanceof Map) {
